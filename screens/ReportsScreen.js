@@ -9,6 +9,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import * as Haptics from 'expo-haptics'
 import * as FileSystem from 'expo-file-system/legacy'
 import * as Sharing from 'expo-sharing'
+import { colors } from '../theme'
 
 const formatMoney = (amount) => {
   return parseFloat(amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
@@ -16,14 +17,17 @@ const formatMoney = (amount) => {
 
 const BAR_WIDTH = 28
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const deductibleCategories = ['Training', 'Travel', 'Equipment', 'Medical', 'Agent fees']
+const deductibleCategories = ['Training', 'Travel', 'Equipment', 'Medical', 'Agent fees', 'Healthcare', 'Education']
 const TAX_RATE = 0.30
+
+const views = ['Overview', 'Breakdown', 'Accounts', 'Payee']
 
 export default function ReportsScreen() {
   const [transactions, setTransactions] = useState([])
+  const [accounts, setAccounts] = useState([])
   const [profile, setProfile] = useState(null)
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
-  const [view, setView] = useState('overview')
+  const [view, setView] = useState('Overview')
   const [refreshing, setRefreshing] = useState(false)
   const [exporting, setExporting] = useState(false)
   const fadeAnim = useRef(new Animated.Value(0)).current
@@ -58,7 +62,13 @@ export default function ReportsScreen() {
       .lte('date', lastDay)
       .order('date', { ascending: false })
 
+    const { data: accountData } = await supabase
+      .from('accounts')
+      .select('*')
+      .eq('user_id', session.user.id)
+
     setTransactions(txData || [])
+    setAccounts(accountData || [])
 
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -88,25 +98,18 @@ export default function ReportsScreen() {
       const estimatedTax = taxableIncome * TAX_RATE
 
       let csv = ''
+      csv += `CLUTCH FINANCE REPORT - ${year}\n`
+      csv += `Name,${profile?.full_name || ''}\n`
+      csv += `Export Date,${now.toLocaleDateString()}\n\n`
 
-      // Section 1 - Athlete Info
-      csv += `ATHLETE FINANCE REPORT - ${year}\n`
-      csv += `Athlete Name,${profile?.full_name || ''}\n`
-      csv += `Sport,${profile?.sport || ''}\n`
-      csv += `Export Date,${now.toLocaleDateString()}\n`
-      csv += `\n`
-
-      // Section 2 - Annual Summary
       csv += `ANNUAL SUMMARY\n`
       csv += `Total Income,$${totalIncome.toFixed(2)}\n`
       csv += `Total Expenses,$${totalExpenses.toFixed(2)}\n`
       csv += `Net Balance,$${(totalIncome - totalExpenses).toFixed(2)}\n`
       csv += `Total Deductibles,$${totalDeductible.toFixed(2)}\n`
       csv += `Taxable Income,$${taxableIncome.toFixed(2)}\n`
-      csv += `Estimated Tax (30%),$${estimatedTax.toFixed(2)}\n`
-      csv += `\n`
+      csv += `Estimated Tax (30%),$${estimatedTax.toFixed(2)}\n\n`
 
-      // Section 3 - Monthly Summary
       csv += `MONTHLY SUMMARY\n`
       csv += `Month,Income,Expenses,Net Balance,Deductibles,Taxable Income,Est Tax (30%)\n`
       months.forEach((m, i) => {
@@ -119,56 +122,34 @@ export default function ReportsScreen() {
       })
       csv += `\n`
 
-      // Section 4 - All Transactions
       csv += `ALL TRANSACTIONS\n`
-      csv += `Date,Description,Category,Type,Amount\n`
+      csv += `Date,Description,Category,Type,Status,Amount\n`
       transactions.forEach(t => {
         const label = t.label.includes(',') ? `"${t.label}"` : t.label
-        csv += `${t.date},${label},${t.category},${t.type === 'income' ? 'Income' : 'Expense'},$${parseFloat(t.amount).toFixed(2)}\n`
+        csv += `${t.date},${label},${t.category},${t.type === 'income' ? 'Income' : 'Expense'},${t.status},$${parseFloat(t.amount).toFixed(2)}\n`
       })
-      csv += `\n`
 
-      // Section 5 - Deductible Expenses
-      csv += `DEDUCTIBLE EXPENSES\n`
-      csv += `Date,Description,Category,Amount\n`
-      const deductibleTx = transactions.filter(t => t.type === 'expense' && deductibleCategories.includes(t.category))
-      if (deductibleTx.length === 0) {
-        csv += `No deductible expenses found\n`
-      } else {
-        deductibleTx.forEach(t => {
-          const label = t.label.includes(',') ? `"${t.label}"` : t.label
-          csv += `${t.date},${label},${t.category},$${parseFloat(t.amount).toFixed(2)}\n`
-        })
-      }
-
-      const fileName = `${profile?.full_name?.replace(' ', '_') || 'Athlete'}_Finance_${year}.csv`
+      const fileName = `${profile?.full_name?.replace(' ', '_') || 'Clutch'}_Finance_${year}.csv`
       const fileUri = FileSystem.documentDirectory + fileName
-
-      await FileSystem.writeAsStringAsync(fileUri, csv, {
-        encoding: 'utf8',
-      })
+      await FileSystem.writeAsStringAsync(fileUri, csv)
 
       const isAvailable = await Sharing.isAvailableAsync()
       if (isAvailable) {
         await Sharing.shareAsync(fileUri, {
           mimeType: 'text/csv',
-          dialogTitle: `${profile?.full_name || 'Athlete'} Finance Report ${year}`,
+          dialogTitle: `Clutch Finance Report ${year}`,
           UTI: 'public.comma-separated-values-text',
         })
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-      } else {
-        Alert.alert('Sharing not available', 'Your device does not support file sharing.')
       }
-
     } catch (error) {
-      console.log('Export error:', error.message)
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       Alert.alert('Export failed', error.message || 'Something went wrong.')
     }
 
     setExporting(false)
   }
 
+  // ── Overview data ──
   const getMonthlyTotals = () => {
     return months.map((m, i) => {
       const monthTx = transactions.filter(t => new Date(t.date).getMonth() === i)
@@ -185,6 +166,7 @@ export default function ReportsScreen() {
   const selectedExpenses = selectedTx.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount), 0)
   const selectedBalance = selectedIncome - selectedExpenses
 
+  // ── Breakdown data ──
   const categoryBreakdown = () => {
     const cats = {}
     selectedTx.filter(t => t.type === 'expense').forEach(t => {
@@ -195,17 +177,51 @@ export default function ReportsScreen() {
   }
 
   const categories = categoryBreakdown()
-  const totalExpenses = categories.reduce((sum, [, v]) => sum + v, 0)
+  const totalCatExpenses = categories.reduce((sum, [, v]) => sum + v, 0)
+
+  // ── Accounts report data ──
+  const getAccountReport = () => {
+    return accounts.map(account => {
+      const accountTx = transactions.filter(t => t.account_id === account.id)
+      const income = accountTx.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0)
+      const expenses = accountTx.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount), 0)
+      const txCount = accountTx.length
+
+      const catBreakdown = {}
+      accountTx.filter(t => t.type === 'expense').forEach(t => {
+        if (!catBreakdown[t.category]) catBreakdown[t.category] = 0
+        catBreakdown[t.category] += parseFloat(t.amount)
+      })
+      const topCategory = Object.entries(catBreakdown).sort((a, b) => b[1] - a[1])[0]
+
+      return { ...account, income, expenses, txCount, topCategory }
+    }).sort((a, b) => b.expenses - a.expenses)
+  }
+
+  const accountReport = getAccountReport()
+
+  // ── Payee report data ──
+  const getPayeeReport = () => {
+    const payees = {}
+    transactions
+      .filter(t => t.payee && t.payee.trim() !== '' && t.type === 'expense')
+      .forEach(t => {
+        if (!payees[t.payee]) payees[t.payee] = { total: 0, count: 0, category: t.category }
+        payees[t.payee].total += parseFloat(t.amount)
+        payees[t.payee].count += 1
+      })
+    return Object.entries(payees)
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 20)
+  }
+
+  const payeeReport = getPayeeReport()
+  const totalPayeeSpending = payeeReport.reduce((sum, [, v]) => sum + v.total, 0)
 
   return (
     <SafeAreaView style={styles.safe}>
-      <Animated.ScrollView
-        contentContainerStyle={styles.container}
-        style={{ opacity: fadeAnim }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#a78bfa" />
-        }
-      >
+      {/* Header */}
+      <View style={styles.header}>
         <View style={styles.headingRow}>
           <Text style={styles.heading}>Reports</Text>
           <TouchableOpacity
@@ -220,32 +236,47 @@ export default function ReportsScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.toggleRow}>
-          <TouchableOpacity
-            style={[styles.toggleBtn, view === 'overview' && styles.toggleActive]}
-            onPress={async () => { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setView('overview') }}
-          >
-            <Text style={[styles.toggleText, view === 'overview' && styles.toggleTextActive]}>Overview</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleBtn, view === 'breakdown' && styles.toggleActive]}
-            onPress={async () => { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setView('breakdown') }}
-          >
-            <Text style={[styles.toggleText, view === 'breakdown' && styles.toggleTextActive]}>Breakdown</Text>
-          </TouchableOpacity>
-        </View>
+        {/* View toggle */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabScroll}
+        >
+          {views.map(v => (
+            <TouchableOpacity
+              key={v}
+              style={[styles.tab, view === v && styles.tabActive]}
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                setView(v)
+              }}
+            >
+              <Text style={[styles.tabText, view === v && styles.tabTextActive]}>{v}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
-        {view === 'overview' ? (
+      <Animated.ScrollView
+        contentContainerStyle={styles.container}
+        style={{ opacity: fadeAnim, flex: 1 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.emerald} />
+        }
+      >
+
+        {/* ── OVERVIEW ── */}
+        {view === 'Overview' && (
           <>
             <Text style={styles.sectionTitle}>Income vs expenses — {new Date().getFullYear()}</Text>
             <View style={styles.card}>
               <View style={styles.chartLegend}>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#4ade80' }]} />
+                  <View style={[styles.legendDot, { backgroundColor: colors.income }]} />
                   <Text style={styles.legendText}>Income</Text>
                 </View>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#f87171' }]} />
+                  <View style={[styles.legendDot, { backgroundColor: colors.expense }]} />
                   <Text style={styles.legendText}>Expenses</Text>
                 </View>
               </View>
@@ -265,8 +296,8 @@ export default function ReportsScreen() {
                         }}
                       >
                         <View style={styles.bars}>
-                          <View style={[styles.bar, { height: incomeHeight, backgroundColor: '#4ade80', opacity: isSelected ? 1 : 0.5 }]} />
-                          <View style={[styles.bar, { height: expenseHeight, backgroundColor: '#f87171', opacity: isSelected ? 1 : 0.5 }]} />
+                          <View style={[styles.bar, { height: incomeHeight, backgroundColor: colors.income, opacity: isSelected ? 1 : 0.4 }]} />
+                          <View style={[styles.bar, { height: expenseHeight, backgroundColor: colors.expense, opacity: isSelected ? 1 : 0.4 }]} />
                         </View>
                         <Text style={[styles.barLabel, isSelected && styles.barLabelSelected]}>{m.month}</Text>
                       </TouchableOpacity>
@@ -287,13 +318,13 @@ export default function ReportsScreen() {
               <View style={styles.summaryGrid}>
                 <View style={styles.summaryCard}>
                   <Text style={styles.summaryLabel}>Income</Text>
-                  <Text style={[styles.summaryValue, styles.greenText]}>${formatMoney(selectedIncome)}</Text>
+                  <Text style={[styles.summaryValue, { color: colors.income }]}>${formatMoney(selectedIncome)}</Text>
                 </View>
                 <View style={styles.summaryCard}>
                   <Text style={styles.summaryLabel}>Expenses</Text>
-                  <Text style={[styles.summaryValue, styles.redText]}>${formatMoney(selectedExpenses)}</Text>
+                  <Text style={[styles.summaryValue, { color: colors.expense }]}>${formatMoney(selectedExpenses)}</Text>
                 </View>
-                <View style={[styles.summaryCard, styles.summaryWide, selectedBalance >= 0 ? styles.summaryGreen : styles.summaryRed]}>
+                <View style={[styles.summaryCard, styles.summaryWide, { backgroundColor: selectedBalance >= 0 ? colors.emerald : colors.expense }]}>
                   <Text style={styles.summaryLabelLight}>Net balance</Text>
                   <Text style={styles.summaryValueLight}>
                     {selectedBalance >= 0 ? '+' : '-'}${formatMoney(Math.abs(selectedBalance))}
@@ -302,9 +333,13 @@ export default function ReportsScreen() {
               </View>
             )}
           </>
-        ) : (
+        )}
+
+        {/* ── BREAKDOWN ── */}
+        {view === 'Breakdown' && (
           <>
-            <Text style={styles.sectionTitle}>Spending by category — {months[selectedMonth]}</Text>
+            <Text style={styles.sectionTitle}>Spending by category</Text>
+
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.monthScroll}>
               {months.map((m, i) => (
                 <TouchableOpacity
@@ -329,18 +364,18 @@ export default function ReportsScreen() {
                 </View>
               ) : (
                 categories.map(([cat, amount], i) => {
-                  const pct = totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0
+                  const pct = totalCatExpenses > 0 ? (amount / totalCatExpenses) * 100 : 0
                   return (
-                    <View key={cat} style={i < categories.length - 1 ? styles.catRowBorder : styles.catRow}>
-                      <View style={styles.catInfo}>
-                        <View style={styles.catLabelRow}>
-                          <Text style={styles.catName}>{cat}</Text>
-                          <Text style={styles.catAmount}>${formatMoney(amount)}</Text>
+                    <View key={cat} style={i < categories.length - 1 ? styles.rowBorder : styles.row}>
+                      <View style={styles.rowInfo}>
+                        <View style={styles.rowLabelRow}>
+                          <Text style={styles.rowLabel}>{cat}</Text>
+                          <Text style={styles.rowAmount}>${formatMoney(amount)}</Text>
                         </View>
                         <View style={styles.progressTrack}>
                           <View style={[styles.progressFill, { width: `${pct}%` }]} />
                         </View>
-                        <Text style={styles.catPct}>{Math.round(pct)}% of expenses</Text>
+                        <Text style={styles.rowSub}>{Math.round(pct)}% of expenses</Text>
                       </View>
                     </View>
                   )
@@ -349,10 +384,146 @@ export default function ReportsScreen() {
               {categories.length > 0 && (
                 <View style={styles.totalRow}>
                   <Text style={styles.totalLabel}>Total expenses</Text>
-                  <Text style={styles.totalAmount}>${formatMoney(totalExpenses)}</Text>
+                  <Text style={styles.totalAmount}>${formatMoney(totalCatExpenses)}</Text>
                 </View>
               )}
             </View>
+          </>
+        )}
+
+        {/* ── ACCOUNTS REPORT ── */}
+        {view === 'Accounts' && (
+          <>
+            <Text style={styles.sectionTitle}>Account report — {new Date().getFullYear()}</Text>
+
+            {accountReport.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>🏦</Text>
+                <Text style={styles.emptyText}>No accounts found</Text>
+                <Text style={styles.emptySubText}>Add accounts to see your account report</Text>
+              </View>
+            ) : (
+              <>
+                {/* Total summary */}
+                <View style={styles.summaryGrid}>
+                  <View style={styles.summaryCard}>
+                    <Text style={styles.summaryLabel}>Total income</Text>
+                    <Text style={[styles.summaryValue, { color: colors.income }]}>
+                      ${formatMoney(transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0))}
+                    </Text>
+                  </View>
+                  <View style={styles.summaryCard}>
+                    <Text style={styles.summaryLabel}>Total expenses</Text>
+                    <Text style={[styles.summaryValue, { color: colors.expense }]}>
+                      ${formatMoney(transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount), 0))}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Per account */}
+                {accountReport.map(account => {
+                  const net = account.income - account.expenses
+                  const totalExp = accountReport.reduce((sum, a) => sum + a.expenses, 0)
+                  const pct = totalExp > 0 ? (account.expenses / totalExp) * 100 : 0
+
+                  return (
+                    <View key={account.id} style={styles.accountReportCard}>
+                      <View style={styles.accountReportHeader}>
+                        <View>
+                          <Text style={styles.accountReportName}>{account.name}</Text>
+                          <Text style={styles.accountReportType}>{account.type} · {account.txCount} transaction{account.txCount !== 1 ? 's' : ''}</Text>
+                        </View>
+                        <View style={styles.accountReportBalance}>
+                          <Text style={[styles.accountReportNet, net >= 0 ? { color: colors.income } : { color: colors.expense }]}>
+                            {net >= 0 ? '+' : '-'}${formatMoney(Math.abs(net))}
+                          </Text>
+                          <Text style={styles.accountReportNetLabel}>net</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.accountReportStats}>
+                        <View style={styles.accountStatItem}>
+                          <Text style={styles.accountStatLabel}>Income</Text>
+                          <Text style={[styles.accountStatValue, { color: colors.income }]}>+${formatMoney(account.income)}</Text>
+                        </View>
+                        <View style={styles.accountStatDivider} />
+                        <View style={styles.accountStatItem}>
+                          <Text style={styles.accountStatLabel}>Expenses</Text>
+                          <Text style={[styles.accountStatValue, { color: colors.expense }]}>-${formatMoney(account.expenses)}</Text>
+                        </View>
+                        <View style={styles.accountStatDivider} />
+                        <View style={styles.accountStatItem}>
+                          <Text style={styles.accountStatLabel}>Top category</Text>
+                          <Text style={styles.accountStatValue} numberOfLines={1}>
+                            {account.topCategory ? account.topCategory[0] : '—'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {account.expenses > 0 && (
+                        <>
+                          <View style={styles.progressTrack}>
+                            <View style={[styles.progressFillExpense, { width: `${Math.min(pct, 100)}%` }]} />
+                          </View>
+                          <Text style={styles.rowSub}>{Math.round(pct)}% of total spending</Text>
+                        </>
+                      )}
+                    </View>
+                  )
+                })}
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── PAYEE REPORT ── */}
+        {view === 'Payee' && (
+          <>
+            <Text style={styles.sectionTitle}>Top payees — {new Date().getFullYear()}</Text>
+
+            {payeeReport.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>👤</Text>
+                <Text style={styles.emptyText}>No payees found</Text>
+                <Text style={styles.emptySubText}>Add a payee when logging transactions to see this report</Text>
+              </View>
+            ) : (
+              <View style={styles.card}>
+                {payeeReport.map(([payee, data], i) => {
+                  const pct = totalPayeeSpending > 0 ? (data.total / totalPayeeSpending) * 100 : 0
+                  return (
+                    <View key={payee} style={i < payeeReport.length - 1 ? styles.rowBorder : styles.row}>
+                      <View style={styles.rowInfo}>
+                        <View style={styles.rowLabelRow}>
+                          <View style={styles.payeeLeft}>
+                            <View style={styles.payeeAvatar}>
+                              <Text style={styles.payeeAvatarText}>
+                                {payee.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                            <View>
+                              <Text style={styles.rowLabel}>{payee}</Text>
+                              <Text style={styles.payeeSub}>
+                                {data.count} transaction{data.count !== 1 ? 's' : ''} · {data.category}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.rowAmount}>${formatMoney(data.total)}</Text>
+                        </View>
+                        <View style={styles.progressTrack}>
+                          <View style={[styles.progressFill, { width: `${pct}%` }]} />
+                        </View>
+                        <Text style={styles.rowSub}>{Math.round(pct)}% of payee spending</Text>
+                      </View>
+                    </View>
+                  )
+                })}
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Total payee spending</Text>
+                  <Text style={styles.totalAmount}>${formatMoney(totalPayeeSpending)}</Text>
+                </View>
+              </View>
+            )}
           </>
         )}
 
@@ -362,60 +533,74 @@ export default function ReportsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f2f2f7' },
-  container: { padding: 24, paddingBottom: 60 },
-  headingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  heading: { fontSize: 24, fontWeight: '700', color: '#1a1a2e' },
-  exportBtn: { backgroundColor: '#1a1a2e', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, minWidth: 100, alignItems: 'center' },
+  safe: { flex: 1, backgroundColor: colors.dark },
+  header: { backgroundColor: colors.dark, padding: 24, paddingBottom: 0 },
+  headingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  heading: { color: colors.textOnDark, fontSize: 24, fontWeight: '700' },
+  exportBtn: { backgroundColor: colors.emerald, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, minWidth: 100, alignItems: 'center' },
   exportBtnDisabled: { opacity: 0.6 },
-  exportBtnText: { color: '#a78bfa', fontSize: 13, fontWeight: '600' },
-  toggleRow: { flexDirection: 'row', backgroundColor: '#e0e0e0', borderRadius: 12, padding: 4, marginBottom: 24 },
-  toggleBtn: { flex: 1, padding: 10, borderRadius: 10, alignItems: 'center' },
-  toggleActive: { backgroundColor: '#1a1a2e' },
-  toggleText: { fontSize: 14, fontWeight: '600', color: '#888' },
-  toggleTextActive: { color: '#fff' },
-  sectionTitle: { fontSize: 15, fontWeight: '600', color: '#1a1a2e', marginBottom: 10 },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 0.5, borderColor: '#e0e0e0' },
+  exportBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  tabScroll: { marginBottom: 0 },
+  tab: { paddingHorizontal: 18, paddingVertical: 10, marginRight: 4, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabActive: { borderBottomColor: colors.emerald },
+  tabText: { fontSize: 14, fontWeight: '600', color: colors.textOnDarkMuted },
+  tabTextActive: { color: colors.emerald },
+  container: { padding: 20, paddingBottom: 60, backgroundColor: colors.background },
+  sectionTitle: { fontSize: 15, fontWeight: '600', color: colors.textPrimary, marginBottom: 12 },
+  card: { backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 0.5, borderColor: colors.border },
   chartLegend: { flexDirection: 'row', gap: 16, marginBottom: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 12, color: '#888' },
+  legendText: { fontSize: 12, color: colors.textSecondary },
   chart: { flexDirection: 'row', alignItems: 'flex-end', paddingBottom: 4, gap: 8 },
   barGroup: { alignItems: 'center', width: BAR_WIDTH * 2 + 4 },
   bars: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 120 },
   bar: { width: BAR_WIDTH, borderRadius: 4 },
-  barLabel: { fontSize: 10, color: '#aaa', marginTop: 6 },
-  barLabelSelected: { color: '#1a1a2e', fontWeight: '600' },
+  barLabel: { fontSize: 10, color: colors.textMuted, marginTop: 6 },
+  barLabelSelected: { color: colors.textPrimary, fontWeight: '600' },
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
-  summaryCard: { backgroundColor: '#fff', borderRadius: 12, padding: 14, width: '47%', borderWidth: 0.5, borderColor: '#e0e0e0' },
+  summaryCard: { backgroundColor: colors.card, borderRadius: 12, padding: 14, width: '47%', borderWidth: 0.5, borderColor: colors.border },
   summaryWide: { width: '100%' },
-  summaryGreen: { backgroundColor: '#1D9E75' },
-  summaryRed: { backgroundColor: '#D85A30' },
-  summaryLabel: { fontSize: 11, color: '#888', marginBottom: 4 },
+  summaryLabel: { fontSize: 11, color: colors.textSecondary, marginBottom: 4 },
   summaryLabelLight: { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 4 },
-  summaryValue: { fontSize: 20, fontWeight: '700', color: '#1a1a2e' },
+  summaryValue: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
   summaryValueLight: { fontSize: 20, fontWeight: '700', color: '#fff' },
-  greenText: { color: '#1D9E75' },
-  redText: { color: '#D85A30' },
   monthScroll: { marginBottom: 12 },
-  monthChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff', borderWidth: 0.5, borderColor: '#e0e0e0', marginRight: 8 },
-  monthChipActive: { backgroundColor: '#1a1a2e', borderColor: '#1a1a2e' },
-  monthChipText: { fontSize: 13, color: '#555' },
-  monthChipTextActive: { color: '#fff' },
-  catRow: { marginBottom: 0 },
-  catRowBorder: { marginBottom: 14 },
-  catInfo: { flex: 1 },
-  catLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  catName: { fontSize: 13, fontWeight: '500', color: '#1a1a2e' },
-  catAmount: { fontSize: 13, color: '#444' },
-  progressTrack: { height: 6, backgroundColor: '#f0f0f0', borderRadius: 3, marginBottom: 4 },
-  progressFill: { height: 6, borderRadius: 3, backgroundColor: '#a78bfa' },
-  catPct: { fontSize: 11, color: '#aaa' },
-  totalRow: { borderTopWidth: 0.5, borderColor: '#f0f0f0', marginTop: 12, paddingTop: 12, flexDirection: 'row', justifyContent: 'space-between' },
-  totalLabel: { fontSize: 13, fontWeight: '600', color: '#1a1a2e' },
-  totalAmount: { fontSize: 13, fontWeight: '700', color: '#f87171' },
-  emptyState: { alignItems: 'center', paddingVertical: 24 },
+  monthChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.card, borderWidth: 0.5, borderColor: colors.border, marginRight: 8 },
+  monthChipActive: { backgroundColor: colors.dark, borderColor: colors.dark },
+  monthChipText: { fontSize: 13, color: colors.textSecondary },
+  monthChipTextActive: { color: colors.emerald },
+  row: { marginBottom: 0 },
+  rowBorder: { marginBottom: 14 },
+  rowInfo: { flex: 1 },
+  rowLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  rowLabel: { fontSize: 13, fontWeight: '500', color: colors.textPrimary, flex: 1 },
+  rowAmount: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
+  rowSub: { fontSize: 11, color: colors.textMuted, marginTop: 4 },
+  progressTrack: { height: 6, backgroundColor: colors.border, borderRadius: 3 },
+  progressFill: { height: 6, borderRadius: 3, backgroundColor: colors.emerald },
+  progressFillExpense: { height: 6, borderRadius: 3, backgroundColor: colors.expense },
+  totalRow: { borderTopWidth: 0.5, borderColor: colors.border, marginTop: 12, paddingTop: 12, flexDirection: 'row', justifyContent: 'space-between' },
+  totalLabel: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
+  totalAmount: { fontSize: 13, fontWeight: '700', color: colors.expense },
+  accountReportCard: { backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 0.5, borderColor: colors.border },
+  accountReportHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  accountReportName: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 },
+  accountReportType: { fontSize: 12, color: colors.textSecondary, textTransform: 'capitalize' },
+  accountReportBalance: { alignItems: 'flex-end' },
+  accountReportNet: { fontSize: 18, fontWeight: '700' },
+  accountReportNetLabel: { fontSize: 11, color: colors.textMuted },
+  accountReportStats: { flexDirection: 'row', backgroundColor: colors.background, borderRadius: 10, padding: 12, marginBottom: 12 },
+  accountStatItem: { flex: 1, alignItems: 'center' },
+  accountStatDivider: { width: 0.5, backgroundColor: colors.border },
+  accountStatLabel: { fontSize: 10, color: colors.textSecondary, marginBottom: 4 },
+  accountStatValue: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
+  payeeLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  payeeAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.emeraldLight, alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: colors.emerald },
+  payeeAvatarText: { color: colors.emerald, fontSize: 15, fontWeight: '700' },
+  payeeSub: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
+  emptyState: { alignItems: 'center', paddingVertical: 40 },
   emptyIcon: { fontSize: 40, marginBottom: 10 },
-  emptyText: { fontSize: 15, fontWeight: '600', color: '#888', marginBottom: 4 },
-  emptySubText: { fontSize: 13, color: '#aaa', textAlign: 'center' },
+  emptyText: { fontSize: 15, fontWeight: '600', color: colors.textSecondary, marginBottom: 4 },
+  emptySubText: { fontSize: 13, color: colors.textMuted, textAlign: 'center' },
 })

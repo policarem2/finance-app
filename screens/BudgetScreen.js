@@ -7,14 +7,16 @@ import {
 import { supabase } from '../supabase'
 import { useFocusEffect } from '@react-navigation/native'
 import * as Haptics from 'expo-haptics'
+import { colors } from '../theme'
 
 const formatMoney = (amount) => {
   return parseFloat(amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
 const defaultCategories = [
-  'Training', 'Travel', 'Equipment',
-  'Medical', 'Agent fees', 'Tax payment'
+  'Housing', 'Food', 'Transport', 'Healthcare',
+  'Education', 'Entertainment', 'Shopping',
+  'Utilities', 'Savings', 'Other'
 ]
 
 export default function BudgetScreen() {
@@ -106,18 +108,12 @@ export default function BudgetScreen() {
     const existing = budgets.find(b => b.category === category)
 
     if (existing) {
-      const { error } = await supabase
-        .from('budgets')
-        .update({ limit_amount: parseFloat(editingAmount) })
-        .eq('id', existing.id)
-      if (!error) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      await supabase.from('budgets').update({ limit_amount: parseFloat(editingAmount) }).eq('id', existing.id)
     } else {
-      const { error } = await supabase
-        .from('budgets')
-        .insert({ user_id: session.user.id, category, limit_amount: parseFloat(editingAmount) })
-      if (!error) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      await supabase.from('budgets').insert({ user_id: session.user.id, category, limit_amount: parseFloat(editingAmount) })
     }
 
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     setEditingId(null)
     setEditingAmount('')
     fetchData()
@@ -125,44 +121,33 @@ export default function BudgetScreen() {
 
   const handleDeleteBudget = async (category) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-    Alert.alert(
-      'Delete budget',
-      `Are you sure you want to delete the "${category}" budget?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const existing = getBudget(category)
-            if (existing) {
-              await supabase.from('budgets').delete().eq('id', existing.id)
-            }
-            setCustomCategories(prev => prev.filter(c => c !== category))
-            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-            fetchData()
-          }
+    Alert.alert('Delete budget', `Delete the "${category}" budget?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: async () => {
+          const existing = getBudget(category)
+          if (existing) await supabase.from('budgets').delete().eq('id', existing.id)
+          setCustomCategories(prev => prev.filter(c => c !== category))
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+          fetchData()
         }
-      ]
-    )
+      }
+    ])
   }
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       Alert.alert('Missing name', 'Please enter a category name.')
       return
     }
-
     if (!newCategoryLimit || isNaN(newCategoryLimit)) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       Alert.alert('Invalid amount', 'Please enter a valid budget limit.')
       return
     }
 
     const allCats = [...defaultCategories, ...customCategories]
     if (allCats.includes(newCategoryName.trim())) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       Alert.alert('Already exists', 'A category with this name already exists.')
       return
     }
@@ -176,11 +161,7 @@ export default function BudgetScreen() {
       limit_amount: parseFloat(newCategoryLimit),
     })
 
-    if (error) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-      Alert.alert('Error', error.message)
-      return
-    }
+    if (error) { Alert.alert('Error', error.message); return }
 
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     setCustomCategories(prev => [...prev, newCategoryName.trim()])
@@ -238,8 +219,8 @@ export default function BudgetScreen() {
           <View style={styles.editRow}>
             <TextInput
               style={styles.editInput}
-              placeholder="Enter limit e.g. 3000"
-              placeholderTextColor="#aaa"
+              placeholder="Enter limit"
+              placeholderTextColor={colors.textMuted}
               keyboardType="decimal-pad"
               value={editingAmount}
               onChangeText={setEditingAmount}
@@ -269,22 +250,11 @@ export default function BudgetScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <Animated.ScrollView
-        contentContainerStyle={styles.container}
-        style={{ opacity: fadeAnim }}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#a78bfa"
-          />
-        }
-      >
+      <View style={styles.header}>
         <View style={styles.headingRow}>
           <View>
             <Text style={styles.heading}>Budget</Text>
-            <Text style={styles.subheading}>Set your monthly spending limits</Text>
+            <Text style={styles.subheading}>Monthly spending limits</Text>
           </View>
           <TouchableOpacity
             style={styles.addCategoryBtn}
@@ -296,15 +266,24 @@ export default function BudgetScreen() {
             <Text style={styles.addCategoryBtnText}>{showAddCategory ? 'Cancel' : '+ Category'}</Text>
           </TouchableOpacity>
         </View>
+      </View>
 
+      <Animated.ScrollView
+        contentContainerStyle={styles.container}
+        style={{ opacity: fadeAnim, flex: 1 }}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.emerald} />
+        }
+      >
         {showAddCategory && (
           <View style={styles.addCategoryCard}>
             <Text style={styles.addCategoryTitle}>New custom category</Text>
             <Text style={styles.label}>Category name</Text>
             <TextInput
               style={styles.editInput}
-              placeholder="e.g. Nutrition, Uniforms"
-              placeholderTextColor="#aaa"
+              placeholder="e.g. Gym, Pet care"
+              placeholderTextColor={colors.textMuted}
               value={newCategoryName}
               onChangeText={setNewCategoryName}
               autoFocus
@@ -313,7 +292,7 @@ export default function BudgetScreen() {
             <TextInput
               style={styles.editInput}
               placeholder="e.g. 500"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={colors.textMuted}
               keyboardType="decimal-pad"
               value={newCategoryLimit}
               onChangeText={setNewCategoryLimit}
@@ -333,46 +312,46 @@ export default function BudgetScreen() {
             {customCategories.map(cat => renderCategory(cat, true))}
           </>
         )}
-
       </Animated.ScrollView>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f2f2f7' },
-  container: { padding: 24, paddingBottom: 60 },
-  headingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  heading: { fontSize: 24, fontWeight: '700', color: '#1a1a2e', marginBottom: 2 },
-  subheading: { fontSize: 13, color: '#888' },
-  addCategoryBtn: { backgroundColor: '#1a1a2e', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginTop: 4 },
-  addCategoryBtnText: { color: '#a78bfa', fontSize: 13, fontWeight: '600' },
-  addCategoryCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 0.5, borderColor: '#a78bfa' },
-  addCategoryTitle: { fontSize: 15, fontWeight: '600', color: '#1a1a2e', marginBottom: 12 },
-  sectionLabel: { fontSize: 12, fontWeight: '600', color: '#888', marginBottom: 10, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
-  label: { fontSize: 13, color: '#555', marginBottom: 6, marginTop: 8, fontWeight: '500' },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 0.5, borderColor: '#e0e0e0' },
+  safe: { flex: 1, backgroundColor: colors.dark },
+  header: { backgroundColor: colors.dark, padding: 24, paddingBottom: 16 },
+  headingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  heading: { color: colors.textOnDark, fontSize: 24, fontWeight: '700', marginBottom: 2 },
+  subheading: { color: colors.textOnDarkMuted, fontSize: 13 },
+  addCategoryBtn: { backgroundColor: colors.emerald, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginTop: 4 },
+  addCategoryBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  container: { padding: 20, paddingBottom: 60, backgroundColor: colors.background },
+  addCategoryCard: { backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: colors.emerald },
+  addCategoryTitle: { fontSize: 15, fontWeight: '600', color: colors.textPrimary, marginBottom: 12 },
+  sectionLabel: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 10, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  label: { fontSize: 13, color: colors.textSecondary, marginBottom: 6, marginTop: 8, fontWeight: '500' },
+  card: { backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 0.5, borderColor: colors.border },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   cardActions: { alignItems: 'flex-end', gap: 4 },
-  customBadge: { backgroundColor: '#eeedfe', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  customBadgeText: { fontSize: 10, color: '#534AB7', fontWeight: '600' },
-  categoryName: { fontSize: 15, fontWeight: '600', color: '#1a1a2e' },
-  amountText: { fontSize: 13, color: '#444' },
-  overText: { color: '#f87171' },
-  noLimitText: { fontSize: 12, color: '#aaa' },
-  deleteBtn: { paddingHorizontal: 8, paddingVertical: 3, backgroundColor: '#fff0f0', borderRadius: 6, borderWidth: 0.5, borderColor: '#f87171' },
-  deleteText: { fontSize: 11, color: '#f87171', fontWeight: '500' },
-  progressTrack: { height: 6, backgroundColor: '#f0f0f0', borderRadius: 3, marginBottom: 10 },
+  customBadge: { backgroundColor: colors.emeraldLight, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  customBadgeText: { fontSize: 10, color: colors.emerald, fontWeight: '600' },
+  categoryName: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
+  amountText: { fontSize: 13, color: colors.textSecondary },
+  overText: { color: colors.expense },
+  noLimitText: { fontSize: 12, color: colors.textMuted },
+  deleteBtn: { paddingHorizontal: 8, paddingVertical: 3, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: 6, borderWidth: 0.5, borderColor: colors.expense },
+  deleteText: { fontSize: 11, color: colors.expense, fontWeight: '500' },
+  progressTrack: { height: 6, backgroundColor: colors.border, borderRadius: 3, marginBottom: 10 },
   progressFill: { height: 6, borderRadius: 3 },
-  fillGreen: { backgroundColor: '#4ade80' },
-  fillAmber: { backgroundColor: '#EF9F27' },
-  fillRed: { backgroundColor: '#f87171' },
+  fillGreen: { backgroundColor: colors.emerald },
+  fillAmber: { backgroundColor: colors.gold },
+  fillRed: { backgroundColor: colors.expense },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  editInput: { flex: 1, backgroundColor: '#f2f2f7', borderRadius: 8, padding: 10, fontSize: 14, color: '#1a1a2e', borderWidth: 0.5, borderColor: '#e0e0e0' },
-  saveBtn: { backgroundColor: '#a78bfa', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10 },
+  editInput: { flex: 1, backgroundColor: colors.background, borderRadius: 8, padding: 10, fontSize: 14, color: colors.textPrimary, borderWidth: 0.5, borderColor: colors.border },
+  saveBtn: { backgroundColor: colors.emerald, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10 },
   saveBtnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
   cancelBtn: { paddingHorizontal: 10, paddingVertical: 10 },
-  cancelBtnText: { color: '#888', fontSize: 13 },
-  editText: { fontSize: 13, color: '#a78bfa', marginTop: 4 },
+  cancelBtnText: { color: colors.textSecondary, fontSize: 13 },
+  editText: { fontSize: 13, color: colors.emerald, marginTop: 4 },
 })

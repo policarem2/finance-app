@@ -124,7 +124,7 @@ export default function DashboardScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#a78bfa"
+            tintColor="#C9973A"
           />
         }
       >
@@ -263,16 +263,16 @@ export default function DashboardScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#1a1a2e' },
-  header: { backgroundColor: '#1a1a2e', padding: 24, paddingTop: 16 },
+  safe: { flex: 1, backgroundColor: '#1C1C1E' },
+  header: { backgroundColor: '#1C1C1E', padding: 24, paddingTop: 16 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   profileBtn: { paddingTop: 4 },
   profileAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(167,139,250,0.3)', alignItems: 'center', justifyContent: 'center' },
-  profileInitials: { color: '#a78bfa', fontSize: 14, fontWeight: '700' },
+  profileInitials: { color: '#C9973A', fontSize: 14, fontWeight: '700' },
   welcomeText: { color: 'rgba(255,255,255,0.6)', fontSize: 13 },
   athleteName: { color: '#fff', fontSize: 22, fontWeight: '600' },
   sportBadge: { backgroundColor: 'rgba(167,139,250,0.2)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, marginTop: 6, alignSelf: 'flex-start' },
-  sportText: { color: '#a78bfa', fontSize: 11, fontWeight: '600' },
+  sportText: { color: '#C9973A', fontSize: 11, fontWeight: '600' },
   balanceCard: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: 20 },
   balanceLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 },
   balanceAmount: { color: '#fff', fontSize: 32, fontWeight: '600', marginBottom: 16 },
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   incomeText: { color: '#4ade80', fontSize: 15, fontWeight: '600' },
   expenseText: { color: '#f87171', fontSize: 15, fontWeight: '600' },
   body: { backgroundColor: '#f2f2f7', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, flex: 1 },
-  sectionTitle: { fontSize: 15, fontWeight: '600', color: '#1a1a2e', marginBottom: 10, marginTop: 4 },
+  sectionTitle: { fontSize: 15, fontWeight: '600', color: '#1C1C1E', marginBottom: 10, marginTop: 4 },
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 0.5, borderColor: '#e0e0e0' },
   budgetRow: { marginBottom: 0 },
   budgetRowBorder: { marginBottom: 14 },
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   txRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   txRowBorder: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 0.5, borderColor: '#f0f0f0', paddingBottom: 12, marginBottom: 12 },
   txInfo: { flex: 1 },
-  txLabel: { fontSize: 13, fontWeight: '500', color: '#1a1a2e' },
+  txLabel: { fontSize: 13, fontWeight: '500', color: '#1C1C1E' },
   txCategory: { fontSize: 11, color: '#888', marginTop: 2 },
   emptyState: { alignItems: 'center', paddingVertical: 20 },
   emptyIcon: { fontSize: 36, marginBottom: 8 },

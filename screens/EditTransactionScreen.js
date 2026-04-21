@@ -7,10 +7,13 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker'
 import { supabase } from '../supabase'
 import * as Haptics from 'expo-haptics'
+import { colors } from '../theme'
 
 const defaultCategories = [
   'Salary', 'Bonus', 'Endorsement', 'Prize money',
-  'Training', 'Travel', 'Equipment', 'Medical',
+  'Housing', 'Food', 'Transport', 'Healthcare',
+  'Education', 'Entertainment', 'Shopping',
+  'Utilities', 'Travel', 'Equipment', 'Medical',
   'Agent fees', 'Tax payment'
 ]
 
@@ -21,6 +24,8 @@ export default function EditTransactionScreen({ route, navigation }) {
   const [amount, setAmount] = useState(transaction.amount.toString())
   const [type, setType] = useState(transaction.type)
   const [category, setCategory] = useState(transaction.category)
+  const [payee, setPayee] = useState(transaction.payee || '')
+  const [status, setStatus] = useState(transaction.status || 'pending')
   const [date, setDate] = useState(new Date(transaction.date))
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -69,6 +74,8 @@ export default function EditTransactionScreen({ route, navigation }) {
         amount: parseFloat(amount),
         type,
         category,
+        payee,
+        status,
         date: date.toISOString().split('T')[0],
       })
       .eq('id', transaction.id)
@@ -131,26 +138,24 @@ export default function EditTransactionScreen({ route, navigation }) {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={styles.backText}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.heading}>Edit transaction</Text>
+          <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn}>
+            <Text style={styles.deleteText}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+
         <ScrollView
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View style={styles.headerRow}>
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Text style={styles.backText}>← Back</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn}>
-              <Text style={styles.deleteText}>Delete</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.heading}>Edit transaction</Text>
-
-          {/* Income / Expense toggle */}
+          {/* Type toggle */}
           <View style={styles.toggleRow}>
             <TouchableOpacity
-              style={[styles.toggleBtn, type === 'expense' && styles.toggleActive]}
+              style={[styles.toggleBtn, type === 'expense' && styles.toggleActiveExpense]}
               onPress={async () => {
                 await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                 setType('expense')
@@ -159,7 +164,7 @@ export default function EditTransactionScreen({ route, navigation }) {
               <Text style={[styles.toggleText, type === 'expense' && styles.toggleTextActive]}>Expense</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.toggleBtn, type === 'income' && styles.toggleActiveGreen]}
+              style={[styles.toggleBtn, type === 'income' && styles.toggleActiveIncome]}
               onPress={async () => {
                 await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
                 setType('income')
@@ -167,30 +172,45 @@ export default function EditTransactionScreen({ route, navigation }) {
             >
               <Text style={[styles.toggleText, type === 'income' && styles.toggleTextActive]}>Income</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleBtn, type === 'transfer' && styles.toggleActiveTransfer]}
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                setType('transfer')
+              }}
+            >
+              <Text style={[styles.toggleText, type === 'transfer' && styles.toggleTextActive]}>Transfer</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Amount */}
           <Text style={styles.label}>Amount</Text>
           <TextInput
             style={styles.input}
             placeholder="0.00"
-            placeholderTextColor="#aaa"
+            placeholderTextColor={colors.textMuted}
             value={amount}
             onChangeText={handleAmountChange}
             keyboardType="decimal-pad"
           />
 
-          {/* Description */}
           <Text style={styles.label}>Description</Text>
           <TextInput
             style={styles.input}
-            placeholder="e.g. Flight to Miami"
-            placeholderTextColor="#aaa"
+            placeholder="e.g. Grocery run"
+            placeholderTextColor={colors.textMuted}
             value={label}
             onChangeText={setLabel}
           />
 
-          {/* Date picker */}
+          <Text style={styles.label}>Payee <Text style={styles.optional}>(optional)</Text></Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Whole Foods"
+            placeholderTextColor={colors.textMuted}
+            value={payee}
+            onChangeText={setPayee}
+          />
+
           <Text style={styles.label}>Date</Text>
           <TouchableOpacity
             style={styles.datePicker}
@@ -217,39 +237,63 @@ export default function EditTransactionScreen({ route, navigation }) {
             />
           )}
 
-          {/* Category picker */}
-          <Text style={styles.label}>Category</Text>
-          <View style={styles.categoryGrid}>
-            {categoriesToShow.map((cat) => {
-              const isCustom = !defaultCategories.includes(cat)
-              return (
-                <TouchableOpacity
-                  key={cat}
-                  style={[
-                    styles.categoryChip,
-                    category === cat && styles.categoryChipActive,
-                    isCustom && styles.categoryChipCustom,
-                    category === cat && isCustom && styles.categoryChipCustomActive,
-                  ]}
-                  onPress={async () => {
-                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                    setCategory(cat)
-                  }}
-                >
-                  <Text style={[styles.categoryText, category === cat && styles.categoryTextActive]}>
-                    {cat}
-                  </Text>
-                  {isCustom && (
-                    <Text style={[styles.customTag, category === cat && styles.customTagActive]}>
-                      custom
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              )
-            })}
+          <Text style={styles.label}>Status</Text>
+          <View style={styles.statusRow}>
+            <TouchableOpacity
+              style={[styles.statusChip, status === 'pending' && styles.statusChipPending]}
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                setStatus('pending')
+              }}
+            >
+              <Text style={[styles.statusText, status === 'pending' && styles.statusTextPending]}>Pending</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.statusChip, status === 'cleared' && styles.statusChipCleared]}
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                setStatus('cleared')
+              }}
+            >
+              <Text style={[styles.statusText, status === 'cleared' && styles.statusTextCleared]}>Cleared</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Save button */}
+          {type !== 'transfer' && (
+            <>
+              <Text style={styles.label}>Category</Text>
+              <View style={styles.categoryGrid}>
+                {categoriesToShow.map((cat) => {
+                  const isCustom = !defaultCategories.includes(cat)
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[
+                        styles.categoryChip,
+                        category === cat && styles.categoryChipActive,
+                        isCustom && styles.categoryChipCustom,
+                        category === cat && isCustom && styles.categoryChipCustomActive,
+                      ]}
+                      onPress={async () => {
+                        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                        setCategory(cat)
+                      }}
+                    >
+                      <Text style={[styles.categoryText, category === cat && styles.categoryTextActive]}>
+                        {cat}
+                      </Text>
+                      {isCustom && (
+                        <Text style={[styles.customTag, category === cat && styles.customTagActive]}>
+                          custom
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </>
+          )}
+
           <TouchableOpacity
             style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
             onPress={handleSave}
@@ -268,35 +312,44 @@ export default function EditTransactionScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f2f2f7' },
+  safe: { flex: 1, backgroundColor: colors.dark },
   flex: { flex: 1 },
-  container: { padding: 24, paddingBottom: 60 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  backText: { color: '#a78bfa', fontSize: 15, fontWeight: '500' },
-  deleteBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#fff0f0', borderRadius: 8, borderWidth: 0.5, borderColor: '#f87171' },
-  deleteText: { color: '#f87171', fontSize: 13, fontWeight: '600' },
-  heading: { fontSize: 24, fontWeight: '700', color: '#1a1a2e', marginBottom: 24 },
-  toggleRow: { flexDirection: 'row', backgroundColor: '#e0e0e0', borderRadius: 12, padding: 4, marginBottom: 24 },
+  header: { backgroundColor: colors.dark, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, paddingBottom: 16 },
+  backText: { color: colors.emerald, fontSize: 15, fontWeight: '500' },
+  heading: { fontSize: 17, fontWeight: '700', color: colors.textOnDark },
+  deleteBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,59,48,0.15)', borderRadius: 8, borderWidth: 0.5, borderColor: colors.expense },
+  deleteText: { color: colors.expense, fontSize: 13, fontWeight: '600' },
+  container: { padding: 20, paddingBottom: 60, backgroundColor: colors.background },
+  toggleRow: { flexDirection: 'row', backgroundColor: colors.border, borderRadius: 12, padding: 4, marginBottom: 20 },
   toggleBtn: { flex: 1, padding: 10, borderRadius: 10, alignItems: 'center' },
-  toggleActive: { backgroundColor: '#f87171' },
-  toggleActiveGreen: { backgroundColor: '#4ade80' },
-  toggleText: { fontSize: 14, fontWeight: '600', color: '#888' },
+  toggleActiveExpense: { backgroundColor: colors.expense },
+  toggleActiveIncome: { backgroundColor: colors.income },
+  toggleActiveTransfer: { backgroundColor: '#60a5fa' },
+  toggleText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   toggleTextActive: { color: '#fff' },
-  label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 8, marginTop: 8 },
-  input: { backgroundColor: '#fff', borderRadius: 12, padding: 16, fontSize: 15, color: '#1a1a2e', borderWidth: 0.5, borderColor: '#e0e0e0', marginBottom: 8 },
-  datePicker: { backgroundColor: '#fff', borderRadius: 12, padding: 16, borderWidth: 0.5, borderColor: '#e0e0e0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  dateText: { fontSize: 15, color: '#1a1a2e' },
+  label: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: 8, marginTop: 8 },
+  optional: { fontWeight: '400', color: colors.textMuted },
+  input: { backgroundColor: colors.card, borderRadius: 12, padding: 16, fontSize: 15, color: colors.textPrimary, borderWidth: 0.5, borderColor: colors.border, marginBottom: 4 },
+  datePicker: { backgroundColor: colors.card, borderRadius: 12, padding: 16, borderWidth: 0.5, borderColor: colors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  dateText: { fontSize: 15, color: colors.textPrimary },
   dateIcon: { fontSize: 16 },
-  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 32 },
-  categoryChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff', borderWidth: 0.5, borderColor: '#e0e0e0', flexDirection: 'row', alignItems: 'center', gap: 4 },
-  categoryChipActive: { backgroundColor: '#1a1a2e', borderColor: '#1a1a2e' },
-  categoryChipCustom: { borderColor: '#a78bfa', borderStyle: 'dashed' },
-  categoryChipCustomActive: { backgroundColor: '#534AB7', borderColor: '#534AB7' },
-  categoryText: { fontSize: 13, color: '#555' },
-  categoryTextActive: { color: '#fff' },
-  customTag: { fontSize: 9, color: '#a78bfa', fontWeight: '600' },
-  customTagActive: { color: 'rgba(255,255,255,0.6)' },
-  saveBtn: { backgroundColor: '#a78bfa', borderRadius: 12, padding: 18, alignItems: 'center' },
+  statusRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
+  statusChip: { flex: 1, padding: 12, borderRadius: 12, backgroundColor: colors.card, borderWidth: 0.5, borderColor: colors.border, alignItems: 'center' },
+  statusChipPending: { backgroundColor: colors.goldLight, borderColor: colors.gold },
+  statusChipCleared: { backgroundColor: colors.emeraldLight, borderColor: colors.emerald },
+  statusText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+  statusTextPending: { color: '#7a5c1e' },
+  statusTextCleared: { color: colors.emerald },
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
+  categoryChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.card, borderWidth: 0.5, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  categoryChipActive: { backgroundColor: colors.dark, borderColor: colors.dark },
+  categoryChipCustom: { borderColor: colors.emerald },
+  categoryChipCustomActive: { backgroundColor: colors.emerald, borderColor: colors.emerald },
+  categoryText: { fontSize: 13, color: colors.textSecondary },
+  categoryTextActive: { color: colors.emerald },
+  customTag: { fontSize: 9, color: colors.emerald, fontWeight: '600' },
+  customTagActive: { color: 'rgba(255,255,255,0.7)' },
+  saveBtn: { backgroundColor: colors.emerald, borderRadius: 12, padding: 18, alignItems: 'center', marginTop: 8 },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 })

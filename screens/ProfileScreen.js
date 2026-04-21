@@ -7,6 +7,7 @@ import {
 import { supabase } from '../supabase'
 import { useFocusEffect } from '@react-navigation/native'
 import * as Haptics from 'expo-haptics'
+import { colors } from '../theme'
 
 const formatMoney = (amount) => {
   return parseFloat(amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
@@ -14,7 +15,7 @@ const formatMoney = (amount) => {
 
 export default function ProfileScreen({ navigation }) {
   const [fullName, setFullName] = useState('')
-  const [sport, setSport] = useState('')
+  const [occupation, setOccupation] = useState('')
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [stats, setStats] = useState({ income: 0, expenses: 0, transactions: 0 })
@@ -39,14 +40,12 @@ export default function ProfileScreen({ navigation }) {
 
     if (profileData) {
       setFullName(profileData.full_name || '')
-      setSport(profileData.sport || '')
+      setOccupation(profileData.sport || '')
     }
 
     const now = new Date()
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
-      .toISOString().split('T')[0]
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-      .toISOString().split('T')[0]
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
 
     const { data: txData } = await supabase
       .from('transactions')
@@ -77,7 +76,7 @@ export default function ProfileScreen({ navigation }) {
 
     const { error } = await supabase
       .from('profiles')
-      .update({ full_name: fullName, sport })
+      .update({ full_name: fullName, sport: occupation })
       .eq('id', session.user.id)
 
     setLoading(false)
@@ -113,7 +112,6 @@ export default function ProfileScreen({ navigation }) {
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
 
-          {/* Back button */}
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Text style={styles.backText}>← Back</Text>
           </TouchableOpacity>
@@ -135,11 +133,11 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.statLabel}>Transactions</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={[styles.statValue, styles.greenText]}>${formatMoney(stats.income)}</Text>
+              <Text style={[styles.statValue, { color: colors.income }]}>${formatMoney(stats.income)}</Text>
               <Text style={styles.statLabel}>Income</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={[styles.statValue, styles.redText]}>${formatMoney(stats.expenses)}</Text>
+              <Text style={[styles.statValue, { color: colors.expense }]}>${formatMoney(stats.expenses)}</Text>
               <Text style={styles.statLabel}>Expenses</Text>
             </View>
           </View>
@@ -152,18 +150,18 @@ export default function ProfileScreen({ navigation }) {
             <TextInput
               style={styles.input}
               placeholder="Your full name"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={colors.textMuted}
               value={fullName}
               onChangeText={setFullName}
             />
 
-            <Text style={styles.label}>Sport</Text>
+            <Text style={styles.label}>Occupation</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. Basketball, Soccer, Tennis"
-              placeholderTextColor="#aaa"
-              value={sport}
-              onChangeText={setSport}
+              placeholder="e.g. Student, Teacher, Engineer"
+              placeholderTextColor={colors.textMuted}
+              value={occupation}
+              onChangeText={setOccupation}
             />
 
             <TouchableOpacity
@@ -175,7 +173,6 @@ export default function ProfileScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          {/* Sign out */}
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Text style={styles.logoutText}>Sign out</Text>
           </TouchableOpacity>
@@ -187,29 +184,27 @@ export default function ProfileScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f2f2f7' },
+  safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   container: { padding: 24, paddingBottom: 60 },
   backBtn: { marginBottom: 8 },
-  backText: { color: '#a78bfa', fontSize: 15, fontWeight: '500' },
-  heading: { fontSize: 24, fontWeight: '700', color: '#1a1a2e', marginBottom: 24 },
+  backText: { color: colors.emerald, fontSize: 15, fontWeight: '500' },
+  heading: { fontSize: 24, fontWeight: '700', color: colors.textPrimary, marginBottom: 24 },
   avatarSection: { alignItems: 'center', marginBottom: 24 },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#1a1a2e', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  avatarText: { color: '#a78bfa', fontSize: 28, fontWeight: '700' },
-  emailText: { fontSize: 13, color: '#888' },
+  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.dark, alignItems: 'center', justifyContent: 'center', marginBottom: 10, borderWidth: 2, borderColor: colors.gold },
+  avatarText: { color: colors.gold, fontSize: 28, fontWeight: '700' },
+  emailText: { fontSize: 13, color: colors.textSecondary },
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 0.5, borderColor: '#e0e0e0' },
-  statValue: { fontSize: 15, fontWeight: '700', color: '#1a1a2e', marginBottom: 2 },
-  statLabel: { fontSize: 10, color: '#888' },
-  greenText: { color: '#1D9E75' },
-  redText: { color: '#D85A30' },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 0.5, borderColor: '#e0e0e0' },
-  sectionTitle: { fontSize: 15, fontWeight: '600', color: '#1a1a2e', marginBottom: 16 },
-  label: { fontSize: 13, color: '#555', marginBottom: 6, marginTop: 8, fontWeight: '500' },
-  input: { backgroundColor: '#f2f2f7', borderRadius: 12, padding: 14, fontSize: 15, color: '#1a1a2e', borderWidth: 0.5, borderColor: '#e0e0e0', marginBottom: 4 },
-  saveBtn: { backgroundColor: '#a78bfa', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
+  statCard: { flex: 1, backgroundColor: colors.card, borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 0.5, borderColor: colors.border },
+  statValue: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 },
+  statLabel: { fontSize: 10, color: colors.textSecondary },
+  card: { backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 0.5, borderColor: colors.border },
+  sectionTitle: { fontSize: 15, fontWeight: '600', color: colors.textPrimary, marginBottom: 16 },
+  label: { fontSize: 13, color: colors.textSecondary, marginBottom: 6, marginTop: 8, fontWeight: '500' },
+  input: { backgroundColor: colors.background, borderRadius: 12, padding: 14, fontSize: 15, color: colors.textPrimary, borderWidth: 0.5, borderColor: colors.border, marginBottom: 4 },
+  saveBtn: { backgroundColor: colors.emerald, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  logoutBtn: { backgroundColor: '#fff', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 0.5, borderColor: '#f87171' },
-  logoutText: { color: '#f87171', fontSize: 15, fontWeight: '600' },
+  logoutBtn: { backgroundColor: colors.card, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 0.5, borderColor: colors.expense },
+  logoutText: { color: colors.expense, fontSize: 15, fontWeight: '600' },
 })

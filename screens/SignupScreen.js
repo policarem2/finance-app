@@ -6,10 +6,11 @@ import {
 } from 'react-native'
 import { supabase } from '../supabase'
 import * as Haptics from 'expo-haptics'
+import { colors } from '../theme'
 
 export default function SignupScreen({ onSwitch }) {
   const [fullName, setFullName] = useState('')
-  const [sport, setSport] = useState('')
+  const [occupation, setOccupation] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -74,7 +75,7 @@ export default function SignupScreen({ onSwitch }) {
       await supabase.from('profiles').insert({
         id: data.user.id,
         full_name: fullName,
-        sport: sport || 'Not specified',
+        sport: occupation || 'Not specified',
       })
     }
 
@@ -90,15 +91,9 @@ export default function SignupScreen({ onSwitch }) {
           <Animated.View style={[styles.checkCircle, { transform: [{ scale: scaleAnim }] }]}>
             <Text style={styles.checkMark}>✓</Text>
           </Animated.View>
-          <Animated.Text style={[styles.successTitle, { opacity: fadeAnim }]}>
-            Account created!
-          </Animated.Text>
-          <Animated.Text style={[styles.successSubtitle, { opacity: fadeAnim }]}>
-            Welcome to Athlete Finance, {fullName.split(' ')[0]}
-          </Animated.Text>
-          <Animated.Text style={[styles.successHint, { opacity: fadeAnim }]}>
-            Taking you to sign in...
-          </Animated.Text>
+          <Text style={styles.successTitle}>Welcome to Clutch!</Text>
+          <Text style={styles.successSubtitle}>{fullName.split(' ')[0]}, your account is ready</Text>
+          <Text style={styles.successHint}>Taking you to sign in...</Text>
         </Animated.View>
       </SafeAreaView>
     )
@@ -116,8 +111,11 @@ export default function SignupScreen({ onSwitch }) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.topSection}>
-            <Text style={styles.appName}>Athlete Finance</Text>
+          <View style={styles.logoSection}>
+            <View style={styles.logoCircle}>
+              <Text style={styles.logoText}>C</Text>
+            </View>
+            <Text style={styles.appName}>CLUTCH</Text>
             <Text style={styles.tagline}>Create your account</Text>
           </View>
 
@@ -125,20 +123,20 @@ export default function SignupScreen({ onSwitch }) {
             <Text style={styles.label}>Full name</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. Marcus Johnson"
-              placeholderTextColor="rgba(255,255,255,0.3)"
+              placeholder="e.g. Jane Smith"
+              placeholderTextColor={colors.textMuted}
               value={fullName}
               onChangeText={setFullName}
               returnKeyType="next"
             />
 
-            <Text style={styles.label}>Sport</Text>
+            <Text style={styles.label}>Occupation <Text style={styles.optional}>(optional)</Text></Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. Basketball, Soccer, Tennis"
-              placeholderTextColor="rgba(255,255,255,0.3)"
-              value={sport}
-              onChangeText={setSport}
+              placeholder="e.g. Student, Teacher, Engineer"
+              placeholderTextColor={colors.textMuted}
+              value={occupation}
+              onChangeText={setOccupation}
               returnKeyType="next"
             />
 
@@ -146,7 +144,7 @@ export default function SignupScreen({ onSwitch }) {
             <TextInput
               style={styles.input}
               placeholder="you@example.com"
-              placeholderTextColor="rgba(255,255,255,0.3)"
+              placeholderTextColor={colors.textMuted}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -158,7 +156,7 @@ export default function SignupScreen({ onSwitch }) {
             <TextInput
               style={styles.input}
               placeholder="••••••••"
-              placeholderTextColor="rgba(255,255,255,0.3)"
+              placeholderTextColor={colors.textMuted}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -169,7 +167,7 @@ export default function SignupScreen({ onSwitch }) {
             <TextInput
               style={styles.input}
               placeholder="••••••••"
-              placeholderTextColor="rgba(255,255,255,0.3)"
+              placeholderTextColor={colors.textMuted}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry
@@ -203,25 +201,28 @@ export default function SignupScreen({ onSwitch }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#1a1a2e' },
+  safe: { flex: 1, backgroundColor: colors.dark },
   flex: { flex: 1 },
-  container: { padding: 24, paddingTop: 60, paddingBottom: 60 },
-  topSection: { marginBottom: 40, alignItems: 'center' },
-  appName: { color: '#fff', fontSize: 32, fontWeight: '700', marginBottom: 8 },
-  tagline: { color: 'rgba(255,255,255,0.5)', fontSize: 14 },
+  container: { padding: 24, paddingTop: 40, paddingBottom: 60 },
+  logoSection: { alignItems: 'center', marginBottom: 36 },
+  logoCircle: { width: 70, height: 70, borderRadius: 35, backgroundColor: colors.goldMuted, alignItems: 'center', justifyContent: 'center', marginBottom: 14, borderWidth: 1.5, borderColor: colors.gold },
+  logoText: { color: colors.gold, fontSize: 36, fontWeight: '800', fontStyle: 'italic' },
+  appName: { color: colors.textOnDark, fontSize: 26, fontWeight: '800', letterSpacing: 6, marginBottom: 6 },
+  tagline: { color: colors.textOnDarkMuted, fontSize: 13 },
   form: { gap: 8 },
-  label: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginBottom: 4, marginTop: 8 },
-  input: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 16, color: '#fff', fontSize: 15, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)' },
-  button: { backgroundColor: '#a78bfa', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
+  label: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginBottom: 4, marginTop: 8, fontWeight: '500' },
+  optional: { fontWeight: '400', color: colors.textMuted },
+  input: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 16, color: colors.textOnDark, fontSize: 15, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.15)' },
+  button: { backgroundColor: colors.gold, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#1a1a2e', fontSize: 16, fontWeight: '700' },
+  buttonText: { color: colors.dark, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
   switchBtn: { alignItems: 'center', marginTop: 20, paddingVertical: 8 },
-  switchText: { color: 'rgba(255,255,255,0.5)', fontSize: 14 },
-  switchLink: { color: '#a78bfa', fontWeight: '600' },
+  switchText: { color: colors.textOnDarkMuted, fontSize: 14 },
+  switchLink: { color: colors.gold, fontWeight: '600' },
   successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  checkCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#a78bfa', alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
-  checkMark: { color: '#fff', fontSize: 48, fontWeight: '700' },
-  successTitle: { color: '#fff', fontSize: 28, fontWeight: '700', marginBottom: 8 },
-  successSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 16, marginBottom: 12 },
-  successHint: { color: 'rgba(255,255,255,0.4)', fontSize: 13 },
+  checkCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.gold, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+  checkMark: { color: colors.dark, fontSize: 48, fontWeight: '700' },
+  successTitle: { color: colors.textOnDark, fontSize: 28, fontWeight: '700', marginBottom: 8 },
+  successSubtitle: { color: colors.textOnDarkMuted, fontSize: 16, marginBottom: 12 },
+  successHint: { color: 'rgba(255,255,255,0.3)', fontSize: 13 },
 })

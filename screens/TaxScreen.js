@@ -6,6 +6,7 @@ import {
 import { supabase } from '../supabase'
 import { useFocusEffect } from '@react-navigation/native'
 import * as Haptics from 'expo-haptics'
+import { colors } from '../theme'
 
 const formatMoney = (amount) => {
   return parseFloat(amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
@@ -20,7 +21,7 @@ const quarterlyDates = [
   { quarter: 'Q4', due: 'January 15, 2027', months: 'Oct — Dec' },
 ]
 
-const deductibleCategories = ['Training', 'Travel', 'Equipment', 'Medical', 'Agent fees']
+const deductibleCategories = ['Training', 'Travel', 'Equipment', 'Medical', 'Agent fees', 'Healthcare', 'Education']
 
 export default function TaxScreen() {
   const [transactions, setTransactions] = useState([])
@@ -80,20 +81,18 @@ export default function TaxScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <Animated.ScrollView
-        contentContainerStyle={styles.container}
-        style={{ opacity: fadeAnim }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#a78bfa"
-          />
-        }
-      >
+      <View style={styles.header}>
         <Text style={styles.heading}>Tax</Text>
         <Text style={styles.subheading}>Based on this month's income and deductibles</Text>
+      </View>
 
+      <Animated.ScrollView
+        contentContainerStyle={styles.container}
+        style={{ opacity: fadeAnim, flex: 1 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.emerald} />
+        }
+      >
         <View style={styles.summaryGrid}>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Total income</Text>
@@ -101,7 +100,7 @@ export default function TaxScreen() {
           </View>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Deductibles</Text>
-            <Text style={[styles.summaryValue, styles.greenText]}>-${formatMoney(totalDeductible)}</Text>
+            <Text style={[styles.summaryValue, { color: colors.income }]}>-${formatMoney(totalDeductible)}</Text>
           </View>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Taxable income</Text>
@@ -139,7 +138,7 @@ export default function TaxScreen() {
                   onPress={() => toggleQuarter(q.quarter)}
                 >
                   <Text style={[styles.paidBtnText, isPaid && styles.paidBtnTextActive]}>
-                    {isPaid ? 'Paid' : 'Mark paid'}
+                    {isPaid ? 'Paid ✓' : 'Mark paid'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -153,7 +152,9 @@ export default function TaxScreen() {
             <View style={styles.emptyState}>
               <Text style={styles.emptyIcon}>🧾</Text>
               <Text style={styles.emptyText}>No deductible expenses</Text>
-              <Text style={styles.emptySubText}>Expenses tagged as Training, Travel, Equipment, Medical, or Agent fees will appear here</Text>
+              <Text style={styles.emptySubText}>
+                Expenses tagged as Training, Travel, Equipment, Medical, Healthcare or Education will appear here
+              </Text>
             </View>
           ) : (
             deductibleTransactions.map((t, i) => (
@@ -173,53 +174,52 @@ export default function TaxScreen() {
             </View>
           )}
         </View>
-
       </Animated.ScrollView>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f2f2f7' },
-  container: { padding: 24, paddingBottom: 60 },
-  heading: { fontSize: 24, fontWeight: '700', color: '#1a1a2e', marginBottom: 4 },
-  subheading: { fontSize: 13, color: '#888', marginBottom: 20 },
+  safe: { flex: 1, backgroundColor: colors.dark },
+  header: { backgroundColor: colors.dark, padding: 24, paddingBottom: 16 },
+  heading: { color: colors.textOnDark, fontSize: 24, fontWeight: '700', marginBottom: 4 },
+  subheading: { color: colors.textOnDarkMuted, fontSize: 13 },
+  container: { padding: 20, paddingBottom: 60, backgroundColor: colors.background },
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
-  summaryCard: { backgroundColor: '#fff', borderRadius: 12, padding: 14, width: '47%', borderWidth: 0.5, borderColor: '#e0e0e0' },
-  summaryCardHighlight: { backgroundColor: '#1a1a2e' },
-  summaryLabel: { fontSize: 11, color: '#888', marginBottom: 4 },
+  summaryCard: { backgroundColor: colors.card, borderRadius: 12, padding: 14, width: '47%', borderWidth: 0.5, borderColor: colors.border },
+  summaryCardHighlight: { backgroundColor: colors.dark },
+  summaryLabel: { fontSize: 11, color: colors.textSecondary, marginBottom: 4 },
   summaryLabelLight: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 4 },
-  summaryValue: { fontSize: 18, fontWeight: '700', color: '#1a1a2e' },
+  summaryValue: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
   summaryValueLight: { fontSize: 18, fontWeight: '700', color: '#fff' },
-  greenText: { color: '#4ade80' },
-  disclaimer: { backgroundColor: '#faeeda', borderRadius: 10, padding: 12, marginBottom: 24, borderWidth: 0.5, borderColor: '#EF9F27' },
-  disclaimerText: { fontSize: 12, color: '#854F0B' },
-  sectionTitle: { fontSize: 15, fontWeight: '600', color: '#1a1a2e', marginBottom: 10 },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 0.5, borderColor: '#e0e0e0' },
+  disclaimer: { backgroundColor: colors.goldLight, borderRadius: 10, padding: 12, marginBottom: 24, borderWidth: 0.5, borderColor: colors.gold },
+  disclaimerText: { fontSize: 12, color: '#7a5c1e' },
+  sectionTitle: { fontSize: 15, fontWeight: '600', color: colors.textPrimary, marginBottom: 10 },
+  card: { backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 0.5, borderColor: colors.border },
   qRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  qRowBorder: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 0.5, borderColor: '#f0f0f0', paddingBottom: 12, marginBottom: 12 },
+  qRowBorder: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 0.5, borderColor: colors.border, paddingBottom: 12, marginBottom: 12 },
   qLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  qBadge: { backgroundColor: '#f2f2f7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 0.5, borderColor: '#e0e0e0' },
-  qBadgePaid: { backgroundColor: '#eaf3de', borderColor: '#4ade80' },
-  qBadgeText: { fontSize: 13, fontWeight: '700', color: '#888' },
-  qBadgeTextPaid: { color: '#3B6D11' },
-  qMonths: { fontSize: 13, fontWeight: '500', color: '#1a1a2e' },
-  qDue: { fontSize: 11, color: '#888', marginTop: 2 },
-  paidBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 0.5, borderColor: '#e0e0e0', backgroundColor: '#f2f2f7' },
-  paidBtnActive: { backgroundColor: '#eaf3de', borderColor: '#4ade80' },
-  paidBtnText: { fontSize: 12, color: '#888', fontWeight: '500' },
-  paidBtnTextActive: { color: '#3B6D11' },
+  qBadge: { backgroundColor: colors.background, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 0.5, borderColor: colors.border },
+  qBadgePaid: { backgroundColor: colors.emeraldLight, borderColor: colors.emerald },
+  qBadgeText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
+  qBadgeTextPaid: { color: colors.emerald },
+  qMonths: { fontSize: 13, fontWeight: '500', color: colors.textPrimary },
+  qDue: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
+  paidBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 0.5, borderColor: colors.border, backgroundColor: colors.background },
+  paidBtnActive: { backgroundColor: colors.emeraldLight, borderColor: colors.emerald },
+  paidBtnText: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' },
+  paidBtnTextActive: { color: colors.emerald },
   txRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  txRowBorder: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 0.5, borderColor: '#f0f0f0', paddingBottom: 12, marginBottom: 12 },
+  txRowBorder: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 0.5, borderColor: colors.border, paddingBottom: 12, marginBottom: 12 },
   txInfo: { flex: 1 },
-  txLabel: { fontSize: 13, fontWeight: '500', color: '#1a1a2e' },
-  txCategory: { fontSize: 11, color: '#888', marginTop: 2 },
-  txAmount: { fontSize: 13, fontWeight: '600', color: '#f87171' },
-  totalRow: { borderTopWidth: 0.5, borderColor: '#f0f0f0', marginTop: 12, paddingTop: 12, flexDirection: 'row', justifyContent: 'space-between' },
-  totalLabel: { fontSize: 13, fontWeight: '600', color: '#1a1a2e' },
-  totalAmount: { fontSize: 13, fontWeight: '700', color: '#4ade80' },
+  txLabel: { fontSize: 13, fontWeight: '500', color: colors.textPrimary },
+  txCategory: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
+  txAmount: { fontSize: 13, fontWeight: '600', color: colors.expense },
+  totalRow: { borderTopWidth: 0.5, borderColor: colors.border, marginTop: 12, paddingTop: 12, flexDirection: 'row', justifyContent: 'space-between' },
+  totalLabel: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
+  totalAmount: { fontSize: 13, fontWeight: '700', color: colors.emerald },
   emptyState: { alignItems: 'center', paddingVertical: 20 },
   emptyIcon: { fontSize: 36, marginBottom: 8 },
-  emptyText: { fontSize: 15, fontWeight: '600', color: '#888', marginBottom: 4 },
-  emptySubText: { fontSize: 13, color: '#aaa', textAlign: 'center' },
+  emptyText: { fontSize: 15, fontWeight: '600', color: colors.textSecondary, marginBottom: 4 },
+  emptySubText: { fontSize: 13, color: colors.textMuted, textAlign: 'center' },
 })
