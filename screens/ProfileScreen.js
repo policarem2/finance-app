@@ -19,6 +19,8 @@ export default function ProfileScreen({ navigation }) {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [stats, setStats] = useState({ income: 0, expenses: 0, transactions: 0 })
+  const [userId, setUserId] = useState(null)
+  const [profileExists, setProfileExists] = useState(false)
 
   useFocusEffect(
     useCallback(() => {
@@ -27,68 +29,114 @@ export default function ProfileScreen({ navigation }) {
   )
 
   const fetchProfile = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) return
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session?.user) {
+        console.log('Session error:', sessionError)
+        return
+      }
 
-    setEmail(session.user.email)
+      const user = session.user
+      setUserId(user.id)
+      setEmail(user.email)
 
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('full_name, sport')
-      .eq('id', session.user.id)
-      .single()
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('full_name, sport')
+        .eq('id', user.id)
+        .single()
 
-    if (profileData) {
-      setFullName(profileData.full_name || '')
-      setOccupation(profileData.sport || '')
-    }
+      if (profileError) {
+        console.log('Profile fetch error:', profileError.message)
+        // Profile row might not exist yet — that's okay
+        setProfileExists(false)
+      } else if (profileData) {
+        setProfileExists(true)
+        setFullName(profileData.full_name || '')
+        setOccupation(profileData.sport || '')
+      }
 
-    const now = new Date()
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
+      const now = new Date()
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
 
-    const { data: txData } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .gte('date', firstDay)
-      .lte('date', lastDay)
+      const { data: txData } = await supabase
+        .from('transactions')
+        .select('amount, type')
+        .eq('user_id', user.id)
+        .gte('date', firstDay)
+        .lte('date', lastDay)
 
-    if (txData) {
-      const income = txData.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0)
-      const expenses = txData.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount), 0)
-      setStats({ income, expenses, transactions: txData.length })
+      if (txData) {
+        const income = txData.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0)
+        const expenses = txData.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount), 0)
+        setStats({ income, expenses, transactions: txData.length })
+      }
+
+    } catch (err) {
+      console.log('fetchProfile error:', err.message)
     }
   }
 
   const handleSave = async () => {
-    if (!fullName) {
+    if (!fullName.trim()) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       Alert.alert('Missing name', 'Please enter your full name.')
+      return
+    }
+
+    if (!userId) {
+      Alert.alert('Error', 'No user session found. Please log out and back in.')
       return
     }
 
     setLoading(true)
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
 
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) return
+    try {
+      let error = null
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ full_name: fullName, sport: occupation })
-      .eq('id', session.user.id)
+      if (profileExists) {
+        // Update existing profile
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            full_name: fullName.trim(),
+            sport: occupation.trim(),
+          })
+          .eq('id', userId)
 
-    setLoading(false)
+        error = updateError
+      } else {
+        // Insert new profile row
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            full_name: fullName.trim(),
+            sport: occupation.trim(),
+          })
 
-    if (error) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-      Alert.alert('Error', error.message)
-    } else {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-      Alert.alert('Saved!', 'Your profile has been updated.', [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ])
+        error = insertError
+        if (!error) setProfileExists(true)
+      }
+
+      if (error) {
+        console.log('Save error:', error.message)
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+        Alert.alert('Error saving profile', error.message)
+      } else {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+        Alert.alert('Saved!', 'Your profile has been updated.', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ])
+      }
+
+    } catch (err) {
+      console.log('handleSave error:', err.message)
+      Alert.alert('Error', err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -96,13 +144,17 @@ export default function ProfileScreen({ navigation }) {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => supabase.auth.signOut() }
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: () => supabase.auth.signOut()
+      }
     ])
   }
 
   const initials = fullName
     ? fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : '?'
+    : email ? email[0].toUpperCase() : '?'
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -110,8 +162,10 @@ export default function ProfileScreen({ navigation }) {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+        >
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Text style={styles.backText}>← Back</Text>
           </TouchableOpacity>
@@ -133,11 +187,15 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.statLabel}>Transactions</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={[styles.statValue, { color: colors.income }]}>${formatMoney(stats.income)}</Text>
+              <Text style={[styles.statValue, { color: colors.income }]}>
+                ${formatMoney(stats.income)}
+              </Text>
               <Text style={styles.statLabel}>Income</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={[styles.statValue, { color: colors.expense }]}>${formatMoney(stats.expenses)}</Text>
+              <Text style={[styles.statValue, { color: colors.expense }]}>
+                ${formatMoney(stats.expenses)}
+              </Text>
               <Text style={styles.statLabel}>Expenses</Text>
             </View>
           </View>
@@ -153,6 +211,7 @@ export default function ProfileScreen({ navigation }) {
               placeholderTextColor={colors.textMuted}
               value={fullName}
               onChangeText={setFullName}
+              autoCapitalize="words"
             />
 
             <Text style={styles.label}>Occupation</Text>
@@ -169,7 +228,9 @@ export default function ProfileScreen({ navigation }) {
               onPress={handleSave}
               disabled={loading}
             >
-              <Text style={styles.saveBtnText}>{loading ? 'Saving...' : 'Save changes'}</Text>
+              <Text style={styles.saveBtnText}>
+                {loading ? 'Saving...' : 'Save changes'}
+              </Text>
             </TouchableOpacity>
           </View>
 

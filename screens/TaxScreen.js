@@ -6,6 +6,7 @@ import {
 import { supabase } from '../supabase'
 import { useFocusEffect } from '@react-navigation/native'
 import * as Haptics from 'expo-haptics'
+import { Ionicons } from '@expo/vector-icons'
 import { colors } from '../theme'
 
 const formatMoney = (amount) => {
@@ -21,9 +22,12 @@ const quarterlyDates = [
   { quarter: 'Q4', due: 'January 15, 2027', months: 'Oct — Dec' },
 ]
 
-const deductibleCategories = ['Training', 'Travel', 'Equipment', 'Medical', 'Agent fees', 'Healthcare', 'Education']
+const deductibleCategories = [
+  'Training', 'Travel', 'Equipment', 'Medical',
+  'Agent fees', 'Healthcare', 'Education'
+]
 
-export default function TaxScreen() {
+export default function TaxScreen({ navigation }) {
   const [transactions, setTransactions] = useState([])
   const [paidQuarters, setPaidQuarters] = useState([])
   const [refreshing, setRefreshing] = useState(false)
@@ -66,33 +70,55 @@ export default function TaxScreen() {
     setRefreshing(false)
   }
 
-  const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0)
-  const totalDeductible = transactions.filter(t => t.type === 'expense' && deductibleCategories.includes(t.category)).reduce((sum, t) => sum + parseFloat(t.amount), 0)
+  const totalIncome = transactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + parseFloat(t.amount), 0)
+  const totalDeductible = transactions
+    .filter(t => t.type === 'expense' && deductibleCategories.includes(t.category))
+    .reduce((sum, t) => sum + parseFloat(t.amount), 0)
   const taxableIncome = Math.max(totalIncome - totalDeductible, 0)
   const estimatedTax = taxableIncome * TAX_RATE
-  const deductibleTransactions = transactions.filter(t => t.type === 'expense' && deductibleCategories.includes(t.category))
+  const deductibleTransactions = transactions
+    .filter(t => t.type === 'expense' && deductibleCategories.includes(t.category))
 
   const toggleQuarter = async (quarter) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     setPaidQuarters(prev =>
-      prev.includes(quarter) ? prev.filter(q => q !== quarter) : [...prev, quarter]
+      prev.includes(quarter)
+        ? prev.filter(q => q !== quarter)
+        : [...prev, quarter]
     )
   }
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.heading}>Tax</Text>
-        <Text style={styles.subheading}>Based on this month's income and deductibles</Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.textOnDark} />
+        </TouchableOpacity>
+        <View>
+          <Text style={styles.heading}>Tax</Text>
+          <Text style={styles.subheading}>Based on this month's transactions</Text>
+        </View>
+        <View style={styles.headerSpacer} />
       </View>
 
       <Animated.ScrollView
         contentContainerStyle={styles.container}
         style={{ opacity: fadeAnim, flex: 1 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.emerald} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.emerald}
+          />
         }
       >
+        {/* Summary grid */}
         <View style={styles.summaryGrid}>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Total income</Text>
@@ -100,7 +126,9 @@ export default function TaxScreen() {
           </View>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Deductibles</Text>
-            <Text style={[styles.summaryValue, { color: colors.income }]}>-${formatMoney(totalDeductible)}</Text>
+            <Text style={[styles.summaryValue, { color: colors.income }]}>
+              -${formatMoney(totalDeductible)}
+            </Text>
           </View>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Taxable income</Text>
@@ -118,15 +146,21 @@ export default function TaxScreen() {
           </Text>
         </View>
 
+        {/* Quarterly payments */}
         <Text style={styles.sectionTitle}>Quarterly estimated payments</Text>
         <View style={styles.card}>
           {quarterlyDates.map((q, i) => {
             const isPaid = paidQuarters.includes(q.quarter)
             return (
-              <View key={q.quarter} style={i < quarterlyDates.length - 1 ? styles.qRowBorder : styles.qRow}>
+              <View
+                key={q.quarter}
+                style={i < quarterlyDates.length - 1 ? styles.qRowBorder : styles.qRow}
+              >
                 <View style={styles.qLeft}>
                   <View style={[styles.qBadge, isPaid && styles.qBadgePaid]}>
-                    <Text style={[styles.qBadgeText, isPaid && styles.qBadgeTextPaid]}>{q.quarter}</Text>
+                    <Text style={[styles.qBadgeText, isPaid && styles.qBadgeTextPaid]}>
+                      {q.quarter}
+                    </Text>
                   </View>
                   <View>
                     <Text style={styles.qMonths}>{q.months}</Text>
@@ -146,6 +180,7 @@ export default function TaxScreen() {
           })}
         </View>
 
+        {/* Deductible expenses */}
         <Text style={styles.sectionTitle}>Deductible expenses this month</Text>
         <View style={styles.card}>
           {deductibleTransactions.length === 0 ? (
@@ -158,7 +193,10 @@ export default function TaxScreen() {
             </View>
           ) : (
             deductibleTransactions.map((t, i) => (
-              <View key={t.id} style={i < deductibleTransactions.length - 1 ? styles.txRowBorder : styles.txRow}>
+              <View
+                key={t.id}
+                style={i < deductibleTransactions.length - 1 ? styles.txRowBorder : styles.txRow}
+              >
                 <View style={styles.txInfo}>
                   <Text style={styles.txLabel}>{t.label}</Text>
                   <Text style={styles.txCategory}>{t.category}</Text>
@@ -181,9 +219,11 @@ export default function TaxScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.dark },
-  header: { backgroundColor: colors.dark, padding: 24, paddingBottom: 16 },
-  heading: { color: colors.textOnDark, fontSize: 24, fontWeight: '700', marginBottom: 4 },
+  header: { backgroundColor: colors.dark, flexDirection: 'row', alignItems: 'center', padding: 24, paddingBottom: 16, gap: 12 },
+  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  heading: { color: colors.textOnDark, fontSize: 24, fontWeight: '700', marginBottom: 2 },
   subheading: { color: colors.textOnDarkMuted, fontSize: 13 },
+  headerSpacer: { width: 36 },
   container: { padding: 20, paddingBottom: 60, backgroundColor: colors.background },
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   summaryCard: { backgroundColor: colors.card, borderRadius: 12, padding: 14, width: '47%', borderWidth: 0.5, borderColor: colors.border },

@@ -115,9 +115,14 @@ export default function AccountDetailScreen({ route, navigation }) {
       <Animated.ScrollView
         style={{ opacity: fadeAnim }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.emerald} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.emerald}
+          />
         }
       >
+        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -146,6 +151,7 @@ export default function AccountDetailScreen({ route, navigation }) {
         </View>
 
         <View style={styles.body}>
+          {/* Filter + Add row */}
           <View style={styles.filterAddRow}>
             <View style={styles.filterRow}>
               {statusFilters.map(f => (
@@ -157,7 +163,9 @@ export default function AccountDetailScreen({ route, navigation }) {
                     setActiveFilter(f)
                   }}
                 >
-                  <Text style={[styles.filterText, activeFilter === f && styles.filterTextActive]}>{f}</Text>
+                  <Text style={[styles.filterText, activeFilter === f && styles.filterTextActive]}>
+                    {f}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -165,13 +173,17 @@ export default function AccountDetailScreen({ route, navigation }) {
               style={styles.addBtn}
               onPress={async () => {
                 await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                navigation.navigate('Add', { accountId: account.id, accountName: account.name })
+                navigation.navigate('Main', {
+                  screen: 'Add',
+                  params: { accountId: account.id, accountName: account.name }
+                })
               }}
             >
               <Ionicons name="add" size={20} color="#fff" />
             </TouchableOpacity>
           </View>
 
+          {/* Transactions */}
           {filteredTransactions.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyIcon}>📭</Text>
@@ -201,7 +213,9 @@ export default function AccountDetailScreen({ route, navigation }) {
                         <View style={styles.txInfo}>
                           <Text style={styles.txLabel}>{t.label}</Text>
                           <Text style={styles.txMeta}>
-                            {t.category}{t.payee ? ` · ${t.payee}` : ''} · {t.date}
+                            {t.category}
+                            {t.payee ? ` · ${t.payee}` : ''}
+                            {' · '}{t.date}
                           </Text>
                         </View>
                       </View>

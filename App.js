@@ -20,6 +20,8 @@ import BudgetScreen from './screens/BudgetScreen'
 import ProfileScreen from './screens/ProfileScreen'
 import FinancialSummaryScreen from './screens/FinancialSummaryScreen'
 import RecurringTransactionsScreen from './screens/RecurringTransactionsScreen'
+import ResourcesScreen from './screens/ResourcesScreen'
+import NILScreen from './screens/NILScreen'
 
 const Tab = createBottomTabNavigator()
 const Stack = createStackNavigator()
@@ -109,6 +111,19 @@ export default function App() {
           name="RecurringTransactions"
           component={RecurringTransactionsScreen}
           options={{ presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="Resources"
+          component={ResourcesScreen}
+          options={{ presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="Tax"
+          component={TaxScreen}
+        />
+        <Stack.Screen
+          name="NIL"
+          component={NILScreen}
         />
       </Stack.Navigator>
     </NavigationContainer>

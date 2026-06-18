@@ -298,7 +298,6 @@ export default function AccountsScreen({ navigation }) {
             ))
           )}
 
-          {/* Quick links */}
           {accounts.length > 0 && (
             <View style={styles.quickLinks}>
               <TouchableOpacity
@@ -322,6 +321,18 @@ export default function AccountsScreen({ navigation }) {
               >
                 <Ionicons name="repeat-outline" size={18} color={colors.emerald} />
                 <Text style={styles.quickLinkText}>Recurring transactions</Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+              </TouchableOpacity>
+              <View style={styles.quickLinkDivider} />
+              <TouchableOpacity
+                style={styles.quickLink}
+                onPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                  navigation.navigate('NIL')
+                }}
+              >
+                <Ionicons name="trophy-outline" size={18} color={colors.gold} />
+                <Text style={styles.quickLinkText}>NIL & income tracker</Text>
                 <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
